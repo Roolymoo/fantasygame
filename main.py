@@ -1,10 +1,25 @@
 from collections import deque
 
 import pygame
-from pygame import display
+from pygame import display, transform
 from pygame.locals import QUIT
 
 from background import Background
+from fileloader import get_level, load_img
+from object import Object
+
+
+def _get_level_dict():
+    """(NoneType) -> NoneType
+    Returns formatted dict for parsing levels being loaded."""
+    return {"type": None, "img": None, "x": None, "y": None, "w": None, "h": None, "flip": None, "rotate": None,
+            "scale": None, "colour": None}
+
+
+def _parse_colour(raw_colour):
+    """(str) -> tuple
+    Takes the str of the usual tuple colour format, and returns the usual tuple format."""
+    return tuple(int(i) for i in raw_colour.strip("()").split(","))
 
 
 def update_display(update_queue):
@@ -14,6 +29,61 @@ def update_display(update_queue):
     display.update(update_queue)
 
     update_queue.clear()
+
+
+def load_level(level_n):
+    """(str) -> NoneType
+    Loads level information from level_n into variables declared in __main__."""
+    with open(get_level(level_n)) as file:
+        line = file.readline()
+        while line:
+            if line[0] == "#":
+                # a comment, ignore
+                line = file.readline()
+                continue
+
+            data = _get_level_dict()
+            # parse data into raw pieces based on type parameter
+            for raw_data in line.split():
+                id, val = raw_data.split("=")
+                data.update({id: val})
+
+            # parse raw pieces corresponding to type parameter
+            if data["type"] == "object":
+                obj = Object(int(data["x"]), int(data["y"]), int(data["w"]), int(data["h"]))
+                env_obj_col.append(obj)
+            elif data["type"] == "bkgrd":
+                obj = Object(int(data["x"]), int(data["y"]), int(data["w"]), int(data["h"]))
+                if data["colour"]:
+                    obj.colour = _parse_colour(data["colour"])
+                background.obj_col.append(obj)
+
+            # resolve additional parameters, if any
+            if data["img"]:
+                obj.img = load_img(data["img"])
+            if data["flip"]:
+                horiz, vert = None, None
+                args = data["flip"].strip("()").split(",")
+                if args[0] == "false":
+                    horiz = False
+                else:
+                    horiz = True
+                if args[1] == "false":
+                    vert = False
+                else:
+                    vert = True
+
+                obj.img = transform.flip(obj.img, horiz, vert)
+            if data["rotate"]:
+                obj.img = transform.rotate(obj.img, int(data["rotate"].split("=")[-1]))
+            if data["scale"]:
+                obj.img = transform.scale(obj.img, tuple(int(i) for i in data["scale"].strip("()").split(",")))
+
+            # render obj if it has an image
+            if obj.img:
+                obj.render(screen, update_queue)
+
+            line = file.readline()
 
 
 if __name__ == "__main__":
@@ -46,6 +116,9 @@ if __name__ == "__main__":
     
     # Create the screen
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+
+    # player
+    player = None
 
     # put desks, garbage cans, etc in here
     env_obj_col = deque()
