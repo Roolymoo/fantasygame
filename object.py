@@ -3,8 +3,8 @@ from pygame import Rect
 
 class Object:
     """Basic structure for an object in the game."""
-    def __init__(self, x, y, w, h):
-        self.rect = Rect(x, y, w, h)
+    def __init__(self, rect):
+        self.rect = rect
         self.img = None
 
     def render(self, screen, update_queue):

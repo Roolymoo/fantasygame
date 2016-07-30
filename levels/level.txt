@@ -6,6 +6,8 @@ type=object img=rock.png x=150 y=310 w=10 h=10 repeat=(right,5)
 type=object img=rock.png x=200 y=310 w=10 h=10 repeat=(up,15)
 type=object img=rock.png x=200 y=160 w=10 h=10 repeat=(right,20)
 type=object img=rock.png x=400 y=160 w=10 h=10 repeat=(up,17)
+# ai in house
+type=kobold x=20 y=20 w=10 h=10
 # bottom-left rock
 type=object img=rock.png x=0 y=690 w=10 h=10 repeat=(right,20)
 type=object img=rock.png x=0 y=680 w=10 h=10 repeat=(up,10)

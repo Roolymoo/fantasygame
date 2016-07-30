@@ -1,12 +1,13 @@
 from collections import deque
 
 import pygame
-from pygame import display, transform
+from pygame import display, transform, Rect
 from pygame.locals import QUIT
 
 from background import Background
 from fileloader import get_level, load_img
 from object import Object
+from ai import Kobold
 
 
 def _get_level_dict():
@@ -20,6 +21,11 @@ def _parse_colour(raw_colour):
     """(str) -> tuple
     Takes the str of the usual tuple colour format, and returns the usual tuple format."""
     return tuple(int(i) for i in raw_colour.strip("()").split(","))
+
+
+def _parse_rect(data):
+    """(dict) -> Rect"""
+    return Rect(int(data["x"]), int(data["y"]), int(data["w"]), int(data["h"]))
 
 
 def update_display(update_queue):
@@ -55,9 +61,7 @@ def _resolve_params(data, obj_col):
         if data["scale"]:
             obj.img = transform.scale(obj.img, tuple(int(i) for i in data["scale"].strip("()").split(",")))
 
-        # render obj if it has an image
-        if obj.img:
-            obj.render(screen, update_queue)
+        obj.render(screen, update_queue)
 
 def load_level(level_n):
     """(str) -> NoneType
@@ -90,26 +94,34 @@ def load_level(level_n):
                     direction = "right"
                     num = 1
 
-                x, y, w, h = int(data["x"]), int(data["y"]), int(data["w"]), int(data["h"])
+                rect = _parse_rect(data)
+                w, h = rect.w, rect.h
                 for i in range(num):
+                    rect_c = rect.copy()
                     if direction == "right":
-                        obj = Object(x + i * w, y, w, h)
+                        rect_c.x += i * w
                     elif direction == "left":
-                        obj = Object(x - i * w, y, w, h)
+                        rect_c.x -= i * w
                     elif direction == "up":
-                        obj = Object(x, y - i * h, w, h)
+                        rect_c.y -= i * h
                     elif direction == "down":
-                        obj = Object(x, y + i * h, w, h)
+                        rect_c.y += i * h
+
+                    obj = Object(rect_c)
 
                     obj_col.append(obj)
                     env_obj_col.append(obj)
             elif data["type"] == "bkgrd":
-                obj = Object(int(data["x"]), int(data["y"]), int(data["w"]), int(data["h"]))
+                obj = Object(_parse_rect(data))
                 if data["colour"]:
                     obj.colour = _parse_colour(data["colour"])
 
                 obj_col.append(obj)
                 background.obj_col.append(obj)
+            elif data["type"] == "kobold":
+                obj = Kobold(_parse_rect(data))
+                obj_col.append(obj)
+                ai_col.append(obj)
 
             _resolve_params(data, obj_col)
 
@@ -154,7 +166,7 @@ if __name__ == "__main__":
     env_obj_col = deque()
 
     # put the ai stuff in here, but not player
-    monster_col = deque()
+    ai_col = deque()
 
     # init rendering
     # Queue of rects specifying areas of display to update
