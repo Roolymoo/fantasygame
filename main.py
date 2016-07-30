@@ -13,7 +13,7 @@ def _get_level_dict():
     """(NoneType) -> NoneType
     Returns formatted dict for parsing levels being loaded."""
     return {"type": None, "img": None, "x": None, "y": None, "w": None, "h": None, "flip": None, "rotate": None,
-            "scale": None, "colour": None}
+            "scale": None, "colour": None, "repeat": None}
 
 
 def _parse_colour(raw_colour):
@@ -31,6 +31,34 @@ def update_display(update_queue):
     update_queue.clear()
 
 
+def _resolve_params(data, obj_col):
+    """(dict, list) -> NoneType
+    For each object in obj_col, resolve the non-type parameters on it, and render the object if applicable."""
+    for obj in obj_col:
+        if data["img"]:
+            obj.img = load_img(data["img"])
+        if data["flip"]:
+            horiz, vert = None, None
+            args = data["flip"].strip("()").split(",")
+            if args[0] == "false":
+                horiz = False
+            else:
+                horiz = True
+            if args[1] == "false":
+                vert = False
+            else:
+                vert = True
+
+            obj.img = transform.flip(obj.img, horiz, vert)
+        if data["rotate"]:
+            obj.img = transform.rotate(obj.img, int(data["rotate"].split("=")[-1]))
+        if data["scale"]:
+            obj.img = transform.scale(obj.img, tuple(int(i) for i in data["scale"].strip("()").split(",")))
+
+        # render obj if it has an image
+        if obj.img:
+            obj.render(screen, update_queue)
+
 def load_level(level_n):
     """(str) -> NoneType
     Loads level information from level_n into variables declared in __main__."""
@@ -42,6 +70,9 @@ def load_level(level_n):
                 line = file.readline()
                 continue
 
+            # store objects created to be dealt with when resolving additional parameters later
+            obj_col = []
+
             data = _get_level_dict()
             # parse data into raw pieces based on type parameter
             for raw_data in line.split():
@@ -50,38 +81,37 @@ def load_level(level_n):
 
             # parse raw pieces corresponding to type parameter
             if data["type"] == "object":
-                obj = Object(int(data["x"]), int(data["y"]), int(data["w"]), int(data["h"]))
-                env_obj_col.append(obj)
+                # how many times and in what direction do we repeat this object
+                if data["repeat"]:
+                    direction, num = data["repeat"].strip("()").split(",")
+                    num = int(num)
+                else:
+                    # dummy direction
+                    direction = "right"
+                    num = 1
+
+                x, y, w, h = int(data["x"]), int(data["y"]), int(data["w"]), int(data["h"])
+                for i in range(num):
+                    if direction == "right":
+                        obj = Object(x + i * w, y, w, h)
+                    elif direction == "left":
+                        obj = Object(x - i * w, y, w, h)
+                    elif direction == "up":
+                        obj = Object(x, y - i * h, w, h)
+                    elif direction == "down":
+                        obj = Object(x, y + i * h, w, h)
+
+                    obj_col.append(obj)
+                    env_obj_col.append(obj)
             elif data["type"] == "bkgrd":
                 obj = Object(int(data["x"]), int(data["y"]), int(data["w"]), int(data["h"]))
                 if data["colour"]:
                     obj.colour = _parse_colour(data["colour"])
+
+                obj_col.append(obj)
                 background.obj_col.append(obj)
 
-            # resolve additional parameters, if any
-            if data["img"]:
-                obj.img = load_img(data["img"])
-            if data["flip"]:
-                horiz, vert = None, None
-                args = data["flip"].strip("()").split(",")
-                if args[0] == "false":
-                    horiz = False
-                else:
-                    horiz = True
-                if args[1] == "false":
-                    vert = False
-                else:
-                    vert = True
-
-                obj.img = transform.flip(obj.img, horiz, vert)
-            if data["rotate"]:
-                obj.img = transform.rotate(obj.img, int(data["rotate"].split("=")[-1]))
-            if data["scale"]:
-                obj.img = transform.scale(obj.img, tuple(int(i) for i in data["scale"].strip("()").split(",")))
-
-            # render obj if it has an image
-            if obj.img:
-                obj.render(screen, update_queue)
+            _resolve_params(data, obj_col)
 
             line = file.readline()
 
@@ -132,6 +162,9 @@ if __name__ == "__main__":
 
     background = Background(WINDOW_WIDTH, WINDOW_HEIGHT, WHITE)
     background.render(screen, update_queue)
+
+    # level
+    load_level("level.txt")
 
     # Force update display (generally handled at end of main loop below)
     update_display(update_queue)
