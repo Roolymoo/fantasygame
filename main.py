@@ -2,7 +2,7 @@ from collections import deque
 
 import pygame
 from pygame import display, transform, Rect
-from pygame.locals import QUIT
+from pygame.locals import QUIT, KEYUP, K_ESCAPE
 
 from background import Background
 from fileloader import get_level, load_img
@@ -14,7 +14,7 @@ def _get_level_dict():
     """(NoneType) -> NoneType
     Returns formatted dict for parsing levels being loaded."""
     return {"type": None, "img": None, "x": None, "y": None, "w": None, "h": None, "flip": None, "rotate": None,
-            "scale": None, "colour": None, "repeat": None}
+            "scale": None, "colour": None, "repeat": None, "rects": None}
 
 
 def _parse_colour(raw_colour):
@@ -26,6 +26,12 @@ def _parse_colour(raw_colour):
 def _parse_rect(data):
     """(dict) -> Rect"""
     return Rect(int(data["x"]), int(data["y"]), int(data["w"]), int(data["h"]))
+
+
+def _parse_rects(data):
+    """(dict) -> list
+    Parses the rect's in data (type rects), and returns this as a list."""
+    return [Rect(*map(int, raw_rect.strip("()").split(","))) for raw_rect in data["rects"].split(".")]
 
 
 def update_display(update_queue):
@@ -122,6 +128,8 @@ def load_level(level_n):
                 obj = Kobold(_parse_rect(data))
                 obj_col.append(obj)
                 ai_col.append(obj)
+            elif data["type"] == "navmesh":
+                navmesh_col.extend(_parse_rects(data))
 
             _resolve_params(data, obj_col)
 
@@ -151,6 +159,7 @@ if __name__ == "__main__":
 
     # colours
     WHITE = (255, 255, 255)
+    RED = (255, 0, 0)
 
     # Art
     
@@ -161,12 +170,12 @@ if __name__ == "__main__":
 
     # player
     player = None
-
     # put desks, garbage cans, etc in here
     env_obj_col = deque()
-
     # put the ai stuff in here, but not player
     ai_col = deque()
+    # rectangles that ai are only allowed to be in (e.g. for movement)
+    navmesh_col = deque()
 
     # init rendering
     # Queue of rects specifying areas of display to update
@@ -184,8 +193,17 @@ if __name__ == "__main__":
     while running:
         # input loop
         for event in pygame.event.get():
-            if event.type == QUIT:
+            if event.type == KEYUP:
+                if event.key == K_ESCAPE:
+                    running = False
+            elif event.type == QUIT:
                 running = False
+
+        # DEBUG ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # draw navmesh
+        for rect in navmesh_col:
+            pygame.draw.rect(screen, RED, rect, 1)
+            update_queue.append(rect)
 
         update_display(update_queue)
 
